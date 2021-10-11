@@ -1,0 +1,7 @@
+resources:
+  - k8s/cronjob.yaml
+namespace: octoflux
+configMapGenerator:
+  - name: octoflux-config
+    envs:
+      - octoflux.conf

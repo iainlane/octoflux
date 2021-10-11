@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: update-octoflux
+spec:
+  schedule: "0,30 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: debian
+            image: ghcr.io/iainlane/octoflux:latest
+            envFrom:
+            - configMapRef:
+                name: octoflux-config
+            imagePullPolicy: Always
+          restartPolicy: OnFailure
+  concurrencyPolicy: Forbid
