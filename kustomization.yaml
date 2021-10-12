@@ -4,4 +4,8 @@ namespace: octoflux
 configMapGenerator:
   - name: octoflux-config
     envs:
-      - octoflux.conf
+      - conf/octoflux.conf
+secretGenerator:
+  - name: octoflux-secret
+    envs:
+     - conf/secrets.conf

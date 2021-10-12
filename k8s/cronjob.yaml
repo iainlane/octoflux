@@ -9,11 +9,14 @@ spec:
       template:
         spec:
           containers:
-          - name: debian
+          - name: octoflux
             image: ghcr.io/iainlane/octoflux:latest
+            args: ["--debug"]
             envFrom:
             - configMapRef:
                 name: octoflux-config
+            - secretRef:
+                name: octoflux-secret
             imagePullPolicy: Always
           restartPolicy: OnFailure
   concurrencyPolicy: Forbid
