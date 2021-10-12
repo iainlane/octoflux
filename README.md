@@ -33,6 +33,16 @@ flags.
 All of the above are required, except you don't have to have both a gas and en
 electricity account. Only one is needed.
 
+## Kubernetes deployment
+
+An example kustomization file is provided. Edit the files in `conf/` and deploy it using
+
+```
+kubectl apply -k ./
+```
+
+It will then run as a Kubernetes cronjob every 30 minutes.
+
 ## Limitations
 
 * The Octopus API only provides you with data that are 24 hours old. So you can't see your current usage.
@@ -40,3 +50,4 @@ electricity account. Only one is needed.
 ## Future work
 
 * Include Grafana dashboards here, and provision them when deploying to Kubernetes.
+* Add some prometheus rules to alert if this breaks.
