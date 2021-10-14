@@ -33,6 +33,12 @@ flags.
 All of the above are required, except you don't have to have both a gas and en
 electricity account. Only one is needed.
 
+Docker images are auto-built from this repository, and [provided via
+ghcr](https://github.com/iainlane/octoflux/pkgs/container/octoflux). Semver tags
+will be generated, e.g. `v1`, `v1.0` and `v1.0.0` depending on how much you like
+to *roll*. You can also follow `main` or `edge` to follow the main branch or
+`latest` to get the latest tagged version.
+
 ## Kubernetes deployment
 
 An example kustomization file is provided. Edit the files in `conf/` and deploy it using
