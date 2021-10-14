@@ -3,6 +3,12 @@
 Sync your [Octopus](https://octopus.energy) smart meter usage into an InfluxDB
 instance.
 
+![A grafana panel showing the data collected by Octoflux. Two stat panels are
+shown at the top, one for electricity and one for gas. They both have
+sparklines. Below that is a normal time series graph showing electricity and gas
+on the same chart. The left axis shows electricity and the right axis shows
+gas.](image/grafana.png)
+
 ## Requirements
 
 * An InfluxDB v2 installation with a bucket you can write to
