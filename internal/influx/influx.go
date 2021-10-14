@@ -74,16 +74,17 @@ func (influx Influx) Close() {
 	influx.client.Close()
 }
 
-func (ifx Influx) GetLastSubmission(ctx context.Context, config *conf.Conf) (time.Time, error) {
+func (ifx Influx) GetLastSubmission(ctx context.Context, config *conf.Conf, fuelType string) (time.Time, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 	result, err := ifx.queryClient.Query(ctx,
-		`from(bucket:"octopus")
+		fmt.Sprintf(`from(bucket:"octopus")
 		|> range(start: -1y)
-		|> filter(fn: (r) => r._measurement == "consumption")
+		|> filter(fn: (r) => r._measurement == "consumption" and
+		                     r.fuel_type == "%s")
 		|> group(columns: ["_measurement"])
 		|> sort(columns: ["_time"])
-		|> last()`)
+		|> last()`, fuelType))
 
 	if err != nil {
 		return time.Time{}, err
@@ -95,13 +96,16 @@ func (ifx Influx) GetLastSubmission(ctx context.Context, config *conf.Conf) (tim
 	}
 
 	if result.Err() != nil {
-		log.WithError(err).Error("Error getting last submission")
+		log.WithField("fuel_type", fuelType).WithError(err).Error("Error getting last submission")
 		return time.Time{}, err
 	}
 
 	record := result.Record()
 	lastTime := record.Time().Add(1 * time.Second)
-	log.WithField("last_submission", lastTime).Debug("Got last submission")
+	log.WithFields(log.Fields{
+		"fuel_type":       fuelType,
+		"last_submission": lastTime,
+	}).Debug("Got last submission")
 
 	return lastTime, nil
 }

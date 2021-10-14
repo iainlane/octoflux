@@ -75,7 +75,7 @@ func get(ctx context.Context, client *octopusenergy.Client, opts octopusenergy.C
 	return nil
 }
 
-func GetConsumption(wg *sync.WaitGroup, config *conf.Conf, grp *errgroup.Group, ctx context.Context, period *time.Time, c chan<- *ConsumptionResponse) {
+func GetConsumption(wg *sync.WaitGroup, config *conf.Conf, grp *errgroup.Group, ctx context.Context, electricityPeriod *time.Time, gasPeriod *time.Time, c chan<- *ConsumptionResponse) {
 	log.Debug("Creating octopus client")
 	var netClient = http.Client{
 		Timeout: time.Second * 10,
@@ -87,7 +87,7 @@ func GetConsumption(wg *sync.WaitGroup, config *conf.Conf, grp *errgroup.Group, 
 
 	var orderByPeriod = "period"
 
-	log.Debugf("Getting consumption since %s", period)
+	log.Debugf("Getting consumption since %s (electricity), %s (gas)", electricityPeriod, gasPeriod)
 	if config.ElectricityMPN != "" {
 		wg.Add(1)
 	}
@@ -102,7 +102,7 @@ func GetConsumption(wg *sync.WaitGroup, config *conf.Conf, grp *errgroup.Group, 
 				MPN:          config.ElectricityMPN,
 				SerialNumber: config.ElectricitySerial,
 				FuelType:     octopusenergy.FuelTypeElectricity,
-				PeriodFrom:   period,
+				PeriodFrom:   electricityPeriod,
 				OrderBy:      &orderByPeriod,
 			}
 			return get(ctx, client, opts, c)
@@ -116,7 +116,7 @@ func GetConsumption(wg *sync.WaitGroup, config *conf.Conf, grp *errgroup.Group, 
 				MPN:          config.GasMPN,
 				SerialNumber: config.GasSerial,
 				FuelType:     octopusenergy.FuelTypeGas,
-				PeriodFrom:   period,
+				PeriodFrom:   gasPeriod,
 				OrderBy:      &orderByPeriod,
 			}
 			return get(ctx, client, opts, c)

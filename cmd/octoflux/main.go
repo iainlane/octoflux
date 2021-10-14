@@ -32,6 +32,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func getLastSubmission(ctx context.Context, c *conf.Conf, influxClient influx.Influx, fuelType string) (time.Time, error) {
+	lastSubmission, err := influxClient.GetLastSubmission(ctx, c, fuelType)
+	if err != nil {
+		log.WithError(err).Errorf("Error getting last %s submission", fuelType)
+		return time.Time{}, err
+	}
+	if lastSubmission.IsZero() {
+		log.Infof("No previous %s submission found", fuelType)
+	} else {
+		log.Infof("Last %s submission in database: %s", fuelType, lastSubmission)
+	}
+
+	return lastSubmission, nil
+}
+
 func main() {
 	var conf conf.Conf
 
@@ -85,17 +100,20 @@ func main() {
 	}
 	defer influxClient.Close()
 
-	lastSubmission, err := influxClient.GetLastSubmission(ctx, &conf)
+	lastElectricitySubmission, err := getLastSubmission(ctx, &conf, influxClient, "electricity")
 	if err != nil {
-		log.WithError(err).Error("Error getting last submission")
-		return
+		os.Exit(1)
 	}
-	log.Infof("Last submission in database: %s", lastSubmission)
+
+	lastGasSubmission, err := getLastSubmission(ctx, &conf, influxClient, "gas")
+	if err != nil {
+		os.Exit(1)
+	}
 
 	var wg sync.WaitGroup
 	c := make(chan *octopus.ConsumptionResponse, 10)
 
-	octopus.GetConsumption(&wg, &conf, grp, ctx, &lastSubmission, c)
+	octopus.GetConsumption(&wg, &conf, grp, ctx, &lastElectricitySubmission, &lastGasSubmission, c)
 	grp.Go(func() error {
 		wg.Wait()
 		log.Info("Done getting consumption")
