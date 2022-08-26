@@ -63,3 +63,4 @@ It will then run as a Kubernetes cronjob every 30 minutes.
 
 * Include Grafana dashboards here, and provision them when deploying to Kubernetes.
 * Add some prometheus rules to alert if this breaks.
+* Any kind of testing. Sorry about that.
