@@ -35,8 +35,36 @@ type ConsumptionResponse struct {
 	Period      time.Time
 }
 
-func get(ctx context.Context, client *octopusenergy.Client, opts octopusenergy.ConsumptionGetOptions, c chan<- *ConsumptionResponse) error {
-	consumption, err := client.Consumption.GetPagesWithContext(ctx, &opts)
+type OctopusClient struct {
+	conf conf.Conf
+
+	ctx    context.Context
+	client *octopusenergy.Client
+}
+
+func New(ctx context.Context, conf conf.Conf) *OctopusClient {
+	log.Debug("Creating octopus client")
+
+	var netClient = http.Client{
+		Timeout: time.Second * 10,
+	}
+	client := octopusenergy.NewClient(octopusenergy.NewConfig().
+		WithApiKey(conf.OctopusAPIKey).
+		WithHTTPClient(netClient),
+	)
+	log.Debug("Created octopus client")
+
+	return &OctopusClient{
+		conf: conf,
+
+		ctx:    ctx,
+		client: client,
+	}
+}
+
+func (o *OctopusClient) getConsumption(opts octopusenergy.ConsumptionGetOptions, c chan<- *ConsumptionResponse) error {
+	defer close(c)
+	consumption, err := o.client.Consumption.GetPagesWithContext(o.ctx, &opts)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -75,51 +103,96 @@ func get(ctx context.Context, client *octopusenergy.Client, opts octopusenergy.C
 	return nil
 }
 
-func GetConsumption(wg *sync.WaitGroup, config *conf.Conf, grp *errgroup.Group, ctx context.Context, electricityPeriod *time.Time, gasPeriod *time.Time, c chan<- *ConsumptionResponse) {
-	log.Debug("Creating octopus client")
-	var netClient = http.Client{
-		Timeout: time.Second * 10,
+func (o *OctopusClient) getMPNAndSerialForFuelType(fuelType octopusenergy.FuelType) (string, string) {
+	switch fuelType {
+	case octopusenergy.FuelTypeElectricity:
+		return o.conf.ElectricityMPN, o.conf.ElectricitySerial
+	case octopusenergy.FuelTypeGas:
+		return o.conf.GasMPN, o.conf.GasSerial
 	}
-	client := octopusenergy.NewClient(octopusenergy.NewConfig().
-		WithApiKey(config.OctopusAPIKey).
-		WithHTTPClient(netClient),
-	)
+	return "", ""
+}
 
+type ConsumptionGrouped struct {
+	Consumption float64
+	FuelType    octopusenergy.FuelType
+	PeriodStart time.Time
+}
+
+func (o *OctopusClient) GetAllConsumption(fueltype octopusenergy.FuelType, groupBy string) (float64, []ConsumptionGrouped, error) {
+	epoch := time.Unix(0, 0)
+
+	orderByPeriod := "period"
+	mpn, serial := o.getMPNAndSerialForFuelType(fueltype)
+	opts := octopusenergy.ConsumptionGetOptions{
+		FuelType:     fueltype,
+		GroupBy:      &groupBy,
+		MPN:          mpn,
+		OrderBy:      &orderByPeriod,
+		PeriodFrom:   &epoch,
+		SerialNumber: serial,
+	}
+	c := make(chan *ConsumptionResponse)
+
+	errGroup := new(errgroup.Group)
+
+	errGroup.Go(func() error {
+		err := o.getConsumption(opts, c)
+		return err
+	})
+
+	var total float64
+	var outputGrouped []ConsumptionGrouped
+
+	for val := range c {
+		log.WithFields(log.Fields{
+			"consumption":      val.Consumption,
+			"cumulative_total": total,
+			"fuel_type":        fueltype,
+		}).Debugf("Got consumption")
+		outputGrouped = append(outputGrouped, ConsumptionGrouped{val.Consumption, val.FuelType, val.Period})
+		total += val.Consumption
+	}
+
+	return total, outputGrouped, errGroup.Wait()
+}
+
+func (o *OctopusClient) GetConsumption(wg *sync.WaitGroup, grp *errgroup.Group, electricityPeriod *time.Time, gasPeriod *time.Time, c chan<- *ConsumptionResponse) {
 	var orderByPeriod = "period"
 
 	log.Debugf("Getting consumption since %s (electricity), %s (gas)", electricityPeriod, gasPeriod)
-	if config.ElectricityMPN != "" {
+	if o.conf.ElectricityMPN != "" {
 		wg.Add(1)
 	}
-	if config.GasMPN != "" {
+	if o.conf.GasMPN != "" {
 		wg.Add(1)
 	}
 
-	if config.ElectricityMPN != "" {
+	if o.conf.ElectricityMPN != "" {
 		grp.Go(func() error {
 			defer wg.Done()
 			opts := octopusenergy.ConsumptionGetOptions{
-				MPN:          config.ElectricityMPN,
-				SerialNumber: config.ElectricitySerial,
+				MPN:          o.conf.ElectricityMPN,
+				SerialNumber: o.conf.ElectricitySerial,
 				FuelType:     octopusenergy.FuelTypeElectricity,
 				PeriodFrom:   electricityPeriod,
 				OrderBy:      &orderByPeriod,
 			}
-			return get(ctx, client, opts, c)
+			return o.getConsumption(opts, c)
 		})
 	}
 
-	if config.GasMPN != "" {
+	if o.conf.GasMPN != "" {
 		grp.Go(func() error {
 			defer wg.Done()
 			opts := octopusenergy.ConsumptionGetOptions{
-				MPN:          config.GasMPN,
-				SerialNumber: config.GasSerial,
+				MPN:          o.conf.GasMPN,
+				SerialNumber: o.conf.GasSerial,
 				FuelType:     octopusenergy.FuelTypeGas,
 				PeriodFrom:   gasPeriod,
 				OrderBy:      &orderByPeriod,
 			}
-			return get(ctx, client, opts, c)
+			return o.getConsumption(opts, c)
 		})
 	}
 }

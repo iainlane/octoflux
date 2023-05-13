@@ -17,13 +17,7 @@
 package conf
 
 type Conf struct {
-	Debug  bool `short:"d" long:"debug" description:"Turn on debug output"`
-	DryRun bool `short:"n" long:"dry-run" description:"Dry run: don't actually write anything, but print what would be written"`
-
-	InfluxHost   string `short:"i" long:"influx-host" description:"InfluxDB host" required:"true" env:"INFLUX_HOST"`
-	InfluxOrg    string `short:"o" long:"influx-org" description:"InfluxDB organization" required:"true" env:"INFLUX_ORG"`
-	InfluxBucket string `short:"b" long:"influx-bucket" description:"InfluxDB bucket" required:"true" env:"INFLUX_BUCKET"`
-	InfluxToken  string `short:"t" long:"influx-token" description:"InfluxDB token" required:"true" env:"INFLUX_TOKEN"`
+	Debug bool `short:"d" long:"debug" description:"Turn on debug output"`
 
 	OctopusAPIKey string `short:"k" long:"octopus-api-key" description:"Octopus API key" required:"true" env:"OCTOPUS_API_KEY"`
 

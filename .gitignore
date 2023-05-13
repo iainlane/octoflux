@@ -1,1 +1,5 @@
 /octoflux
+
+secrets.env
+conf/octoflux.conf
+conf/secrets.conf
